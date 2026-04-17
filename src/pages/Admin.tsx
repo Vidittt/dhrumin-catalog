@@ -13,11 +13,11 @@ type FormState = {
   name: string;
   brand: string;
   size: string;
-  capacity: string;
+  colour: string;
   category: string;
 };
 
-const emptyForm: FormState = { name: "", brand: "", size: "", capacity: "", category: "" };
+const emptyForm: FormState = { name: "", brand: "", size: "", colour: "", category: "" };
 
 const Admin = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -40,17 +40,17 @@ const Admin = () => {
   }
 
   const suggestions = useMemo(() => {
-    const acc = { brand: new Set<string>(), size: new Set<string>(), capacity: new Set<string>(), category: new Set<string>() };
+const acc = { brand: new Set<string>(), size: new Set<string>(), colour: new Set<string>(), category: new Set<string>() };
     for (const p of products) {
       if (p.brand) acc.brand.add(p.brand);
       if (p.size) acc.size.add(p.size);
-      if (p.capacity) acc.capacity.add(p.capacity);
+      if (p.colour) acc.colour.add(p.colour);
       if (p.category) acc.category.add(p.category);
     }
     return {
       brand: [...acc.brand],
       size: [...acc.size],
-      capacity: [...acc.capacity],
+      colour: [...acc.colour],
       category: [...acc.category],
     };
   }, [products]);
@@ -83,7 +83,7 @@ const Admin = () => {
         name: form.name.trim(),
         brand: form.brand.trim() || null,
         size: form.size.trim() || null,
-        capacity: form.capacity.trim() || null,
+        colour: form.colour.trim() || null,
         category: form.category.trim() || null,
         image_url,
       });
@@ -159,7 +159,7 @@ const Admin = () => {
                 )}
               </div>
 
-              {(["brand", "size", "capacity", "category"] as const).map((key) => (
+              {(["brand", "size", "colour", "category"] as const).map((key) => (
                 <div className="space-y-2" key={key}>
                   <Label htmlFor={key} className="capitalize">{key}</Label>
                   <Input
@@ -226,11 +226,11 @@ const Admin = () => {
   );
 };
 
-const defaultPlaceholders: Record<"brand" | "size" | "capacity" | "category", string> = {
-  brand: "Apple",
-  size: "Medium",
-  capacity: "256GB",
-  category: "Electronics",
+const defaultPlaceholders: Record<"brand" | "size" | "colour" | "category", string> = {
+  brand: "American Tourister",
+  size: "Cabin",
+  colour: "Black",
+  category: "Trolley",
 };
 
 export default Admin;

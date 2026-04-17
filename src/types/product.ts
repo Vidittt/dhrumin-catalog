@@ -4,7 +4,7 @@ export type Product = {
   image_url: string | null;
   brand: string | null;
   size: string | null;
-  capacity: string | null;
+  colour: string | null;
   category: string | null;
   created_at: string;
 };

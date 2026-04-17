@@ -30,7 +30,7 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="flex flex-wrap gap-1">
           {product.category && <Badge variant="secondary" className="text-[10px]">{product.category}</Badge>}
           {product.size && <Badge variant="outline" className="text-[10px]">Size: {product.size}</Badge>}
-          {product.capacity && <Badge variant="outline" className="text-[10px]">{product.capacity}</Badge>}
+          {product.colour && <Badge variant="outline" className="text-[10px]">{product.colour}</Badge>}
         </div>
       </CardContent>
     </Card>

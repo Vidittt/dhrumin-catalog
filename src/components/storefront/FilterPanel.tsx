@@ -2,7 +2,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-export type FacetKey = "brand" | "size" | "capacity" | "category";
+export type FacetKey = "brand" | "size" | "colour" | "category";
 export type Filters = Record<FacetKey, string[]>;
 
 type Props = {
@@ -15,7 +15,7 @@ type Props = {
 const labels: Record<FacetKey, string> = {
   brand: "Brand",
   size: "Size",
-  capacity: "Capacity",
+  colour: "colour",
   category: "Category",
 };
 

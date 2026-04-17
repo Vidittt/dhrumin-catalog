@@ -5,7 +5,7 @@ CREATE TABLE public.products (
   image_url TEXT,
   brand TEXT,
   size TEXT,
-  capacity TEXT,
+  colour TEXT,
   category TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );

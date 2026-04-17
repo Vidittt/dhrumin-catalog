@@ -10,7 +10,7 @@ import { FilterPanel, type Filters } from "@/components/storefront/FilterPanel";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import type { Product } from "@/types/product";
 
-const emptyFilters: Filters = { brand: [], size: [], capacity: [], category: [] };
+const emptyFilters: Filters = { brand: [], size: [], colour: [], category: [] };
 
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -21,7 +21,7 @@ const Index = () => {
   useEffect(() => {
     document.title = "Storefront — Browse products";
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", "Search and filter our product catalog by brand, size, capacity, and category.");
+    if (meta) meta.setAttribute("content", "Search and filter our product catalog by brand, size, colour, and category.");
     fetchProducts();
   }, []);
 
@@ -36,17 +36,17 @@ const Index = () => {
   }
 
   const facets = useMemo(() => {
-    const f = { brand: new Set<string>(), size: new Set<string>(), capacity: new Set<string>(), category: new Set<string>() };
+    const f = { brand: new Set<string>(), size: new Set<string>(), colour: new Set<string>(), category: new Set<string>() };
     for (const p of products) {
       if (p.brand) f.brand.add(p.brand);
       if (p.size) f.size.add(p.size);
-      if (p.capacity) f.capacity.add(p.capacity);
+      if (p.colour) f.colour.add(p.colour);
       if (p.category) f.category.add(p.category);
     }
     return {
       brand: [...f.brand].sort(),
       size: [...f.size].sort(),
-      capacity: [...f.capacity].sort(),
+      colour: [...f.colour].sort(),
       category: [...f.category].sort(),
     };
   }, [products]);
@@ -58,7 +58,7 @@ const Index = () => {
         const hay = `${p.name} ${p.brand ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      for (const key of ["brand", "size", "capacity", "category"] as const) {
+      for (const key of ["brand", "size", "colour", "category"] as const) {
         const sel = filters[key];
         if (sel.length === 0) continue;
         const val = p[key];
@@ -69,7 +69,7 @@ const Index = () => {
   }, [products, search, filters]);
 
   const activeCount =
-    filters.brand.length + filters.size.length + filters.capacity.length + filters.category.length;
+    filters.brand.length + filters.size.length + filters.colour.length + filters.category.length;
 
   function clearAll() {
     setFilters(emptyFilters);

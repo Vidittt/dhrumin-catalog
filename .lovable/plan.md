@@ -11,7 +11,7 @@ A simple two-surface app: a public storefront with search + filters, and a hidde
 - `image_url` (text)
 - `brand` (text)
 - `size` (text)
-- `capacity` (text)
+- `colour` (text)
 - `category` (text)
 
 **RLS policies**
@@ -28,7 +28,7 @@ Layout: filter sidebar on the left, product grid on the right. Collapses to a to
 
 - **Top bar**: app title + search input (filters as you type)
 - **Sidebar filters** (checkbox groups, multi-select):
-  - Brand, Size, Capacity, Category
+  - Brand, Size, Colour, Category
   - Each facet's options derived dynamically from the current product set
   - "Clear all" button
 - **Product grid**: image, name, brand, category, size/capacity chips
@@ -42,7 +42,7 @@ Hidden route (not linked from storefront — accessed by typing the URL).
 - "Add Product" form with controlled inputs:
   - Name (required)
   - Image upload (file picker → uploads to storage → stores public URL)
-  - Brand, Size, Capacity, Category (text inputs with suggestions from existing values)
+  - Brand, Size, Colour, Category (text inputs with suggestions from existing values)
 - Submit → inserts into `products`, shows toast, clears form
 - Below the form: simple list of recently added products with thumbnail + delete button
 
