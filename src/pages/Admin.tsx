@@ -136,7 +136,7 @@ const Admin = () => {
                   id="name"
                   value={form.name}
                   onChange={(e) => update("name", e.target.value)}
-                  placeholder="iPhone 15 Pro"
+                  placeholder="Enter product name"
                   required
                 />
               </div>
