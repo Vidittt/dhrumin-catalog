@@ -17,33 +17,51 @@ export type Database = {
       products: {
         Row: {
           brand: string | null
-          colour: string | null
+          capacity: string | null
           category: string | null
+          colour: string | null
           created_at: string
+          dimensions: string | null
+          discounted_price: number | null
           id: string
           image_url: string | null
+          material: string | null
           name: string
+          original_price: number | null
           size: string | null
+          subcategory: string | null
         }
         Insert: {
           brand?: string | null
-          colour?: string | null
+          capacity?: string | null
           category?: string | null
+          colour?: string | null
           created_at?: string
+          dimensions?: string | null
+          discounted_price?: number | null
           id?: string
           image_url?: string | null
+          material?: string | null
           name: string
+          original_price?: number | null
           size?: string | null
+          subcategory?: string | null
         }
         Update: {
           brand?: string | null
-          colour?: string | null
+          capacity?: string | null
           category?: string | null
+          colour?: string | null
           created_at?: string
+          dimensions?: string | null
+          discounted_price?: number | null
           id?: string
           image_url?: string | null
+          material?: string | null
           name?: string
+          original_price?: number | null
           size?: string | null
+          subcategory?: string | null
         }
         Relationships: []
       }

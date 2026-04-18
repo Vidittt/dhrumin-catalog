@@ -15,9 +15,27 @@ type FormState = {
   size: string;
   colour: string;
   category: string;
+  subcategory: string;
+  material: string;
+  dimensions: string;
+  original_price: string;
+  discounted_price: string;
 };
 
-const emptyForm: FormState = { name: "", brand: "", size: "", colour: "", category: "" };
+const emptyForm: FormState = {
+  name: "",
+  brand: "",
+  size: "",
+  colour: "",
+  category: "",
+  subcategory: "",
+  material: "",
+  dimensions: "",
+  original_price: "",
+  discounted_price: "",
+};
+
+type SuggestKey = "brand" | "size" | "colour" | "category" | "subcategory" | "material";
 
 const Admin = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -36,27 +54,46 @@ const Admin = () => {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(20);
-    if (data) setProducts(data as Product[]);
+    if (data) setProducts(data as unknown as Product[]);
   }
 
   const suggestions = useMemo(() => {
-const acc = { brand: new Set<string>(), size: new Set<string>(), colour: new Set<string>(), category: new Set<string>() };
+    const acc: Record<SuggestKey, Set<string>> = {
+      brand: new Set(),
+      size: new Set(),
+      colour: new Set(),
+      category: new Set(),
+      subcategory: new Set(),
+      material: new Set(),
+    };
     for (const p of products) {
       if (p.brand) acc.brand.add(p.brand);
       if (p.size) acc.size.add(p.size);
       if (p.colour) acc.colour.add(p.colour);
       if (p.category) acc.category.add(p.category);
+      if (p.subcategory) acc.subcategory.add(p.subcategory);
+      if (p.material) acc.material.add(p.material);
     }
     return {
       brand: [...acc.brand],
       size: [...acc.size],
       colour: [...acc.colour],
       category: [...acc.category],
+      subcategory: [...acc.subcategory],
+      material: [...acc.material],
     };
   }, [products]);
 
   function update<K extends keyof FormState>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function parsePrice(value: string): number | null {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed);
+    if (Number.isNaN(n) || n < 0) return NaN;
+    return n;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -65,6 +102,18 @@ const acc = { brand: new Set<string>(), size: new Set<string>(), colour: new Set
       toast.error("Name is required");
       return;
     }
+
+    const original = parsePrice(form.original_price);
+    const discounted = parsePrice(form.discounted_price);
+    if (Number.isNaN(original) || Number.isNaN(discounted)) {
+      toast.error("Prices must be valid non-negative numbers");
+      return;
+    }
+    if (original != null && discounted != null && discounted > original) {
+      toast.error("Discounted price cannot exceed original price");
+      return;
+    }
+
     setSubmitting(true);
     try {
       let image_url: string | null = null;
@@ -85,8 +134,13 @@ const acc = { brand: new Set<string>(), size: new Set<string>(), colour: new Set
         size: form.size.trim() || null,
         colour: form.colour.trim() || null,
         category: form.category.trim() || null,
+        subcategory: form.subcategory.trim() || null,
+        material: form.material.trim() || null,
+        dimensions: form.dimensions.trim() || null,
+        original_price: original,
+        discounted_price: discounted,
         image_url,
-      });
+      } as any);
       if (error) throw error;
 
       toast.success("Product added");
@@ -159,7 +213,7 @@ const acc = { brand: new Set<string>(), size: new Set<string>(), colour: new Set
                 )}
               </div>
 
-              {(["brand", "size", "colour", "category"] as const).map((key) => (
+              {(["brand", "size", "colour", "category", "subcategory", "material"] as const).map((key) => (
                 <div className="space-y-2" key={key}>
                   <Label htmlFor={key} className="capitalize">{key}</Label>
                   <Input
@@ -176,6 +230,45 @@ const acc = { brand: new Set<string>(), size: new Set<string>(), colour: new Set
                   </datalist>
                 </div>
               ))}
+
+              <div className="space-y-2">
+                <Label htmlFor="dimensions">Dimensions</Label>
+                <Input
+                  id="dimensions"
+                  value={form.dimensions}
+                  onChange={(e) => update("dimensions", e.target.value)}
+                  placeholder="e.g. 30 × 20 × 10 cm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="original_price">Original price</Label>
+                  <Input
+                    id="original_price"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={form.original_price}
+                    onChange={(e) => update("original_price", e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="discounted_price">Discounted price</Label>
+                  <Input
+                    id="discounted_price"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={form.discounted_price}
+                    onChange={(e) => update("discounted_price", e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
 
               <Button type="submit" disabled={submitting} className="w-full">
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -226,11 +319,13 @@ const acc = { brand: new Set<string>(), size: new Set<string>(), colour: new Set
   );
 };
 
-const defaultPlaceholders: Record<"brand" | "size" | "colour" | "category", string> = {
+const defaultPlaceholders: Record<SuggestKey, string> = {
   brand: "American Tourister",
   size: "Cabin",
   colour: "Black",
   category: "Trolley",
+  subcategory: "Hardside",
+  material: "Polycarbonate",
 };
 
 export default Admin;

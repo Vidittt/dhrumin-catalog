@@ -10,7 +10,7 @@ import { FilterPanel, type Filters } from "@/components/storefront/FilterPanel";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import type { Product } from "@/types/product";
 
-const emptyFilters: Filters = { brand: [], size: [], colour: [], category: [] };
+const emptyFilters: Filters = { brand: [], size: [], colour: [], category: [], subcategory: [], material: [] };
 
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -36,18 +36,29 @@ const Index = () => {
   }
 
   const facets = useMemo(() => {
-    const f = { brand: new Set<string>(), size: new Set<string>(), colour: new Set<string>(), category: new Set<string>() };
+    const f = {
+      brand: new Set<string>(),
+      size: new Set<string>(),
+      colour: new Set<string>(),
+      category: new Set<string>(),
+      subcategory: new Set<string>(),
+      material: new Set<string>(),
+    };
     for (const p of products) {
       if (p.brand) f.brand.add(p.brand);
       if (p.size) f.size.add(p.size);
       if (p.colour) f.colour.add(p.colour);
       if (p.category) f.category.add(p.category);
+      if (p.subcategory) f.subcategory.add(p.subcategory);
+      if (p.material) f.material.add(p.material);
     }
     return {
       brand: [...f.brand].sort(),
       size: [...f.size].sort(),
       colour: [...f.colour].sort(),
       category: [...f.category].sort(),
+      subcategory: [...f.subcategory].sort(),
+      material: [...f.material].sort(),
     };
   }, [products]);
 
@@ -58,7 +69,7 @@ const Index = () => {
         const hay = `${p.name} ${p.brand ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      for (const key of ["brand", "size", "colour", "category"] as const) {
+      for (const key of ["brand", "size", "colour", "category", "subcategory", "material"] as const) {
         const sel = filters[key];
         if (sel.length === 0) continue;
         const val = p[key];
@@ -69,7 +80,12 @@ const Index = () => {
   }, [products, search, filters]);
 
   const activeCount =
-    filters.brand.length + filters.size.length + filters.colour.length + filters.category.length;
+    filters.brand.length +
+    filters.size.length +
+    filters.colour.length +
+    filters.category.length +
+    filters.subcategory.length +
+    filters.material.length;
 
   function clearAll() {
     setFilters(emptyFilters);
