@@ -19,6 +19,7 @@ export type Database = {
           brand: string | null
           capacity: string | null
           category: string | null
+          colour: string | null
           created_at: string
           dimensions: string | null
           discounted_price: number | null
@@ -34,6 +35,7 @@ export type Database = {
           brand?: string | null
           capacity?: string | null
           category?: string | null
+          colour?: string | null
           created_at?: string
           dimensions?: string | null
           discounted_price?: number | null
@@ -49,6 +51,7 @@ export type Database = {
           brand?: string | null
           capacity?: string | null
           category?: string | null
+          colour?: string | null
           created_at?: string
           dimensions?: string | null
           discounted_price?: number | null
