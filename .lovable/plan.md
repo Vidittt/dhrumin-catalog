@@ -1,50 +1,33 @@
 
-## Bulk import — button + modal
+## Expand product card to view full details
 
-Replace the planned 3-column layout with a single "Bulk import" button in the admin header. Clicking it opens a modal that contains the entire bulk import flow.
+Make any product card on the storefront clickable. Clicking opens a modal showing the full product details (large image + every field).
 
-### UI placement
-
-Admin page layout stays as today (2-column: New product + Recent products). Add a button to the header next to "View storefront":
-
-```text
-Header: [Admin · Add product]      [Bulk import] [View storefront]
-Body:   [New product]   [Recent products]
-```
+### Interaction
+- The whole card becomes a button (cursor-pointer, keyboard-accessible).
+- Click / Enter / Space → opens a centered Dialog modal.
+- Close via overlay click, ESC, or the built-in close button.
 
 ### Modal contents
+Wide modal (`max-w-3xl`), 2-column layout on desktop, stacked on mobile:
+- **Left**: large product image (square, full width of column). Falls back to placeholder icon if no image.
+- **Right**:
+  - Product name (large heading)
+  - Brand (muted)
+  - Price block: discounted price prominent; original price struck-through next to it when both set
+  - Category / Subcategory chips
+  - A clean "spec list" showing every populated field as label/value rows:
+    - Size, Colour, Material, Dimensions
+  - "Added on" date (from `created_at`), small + muted at the bottom
 
-Built with the existing `Dialog` component (`src/components/ui/dialog.tsx`). Wide modal (`max-w-3xl`), scrollable body. Inside:
+Empty fields are simply omitted (no "N/A" rows).
 
-1. **Intro + template** — one-line explainer + "Download CSV template" button.
-2. **File inputs** — CSV (required) and ZIP of images (optional).
-3. **Preview table** — appears after files are picked. Shows parsed rows, validation status per row, and image-match status (✓ found / ✗ missing / — none). Invalid rows highlighted.
-4. **Footer** — row counts ("47 valid · 3 invalid · 12 images matched"), `Cancel` button, and `Import N products` button. Button shows progress (`Importing 12 / 47…`) during run.
-5. **Result summary** — after import completes, swap the table for a summary (success/failure counts + any per-row errors), with a `Close` button. Closing refreshes the recent products list.
+### Files touched
+- **Edit**: `src/components/storefront/ProductCard.tsx` — wrap card in a Dialog trigger; add `<ProductDetailDialog>` inline (or as a small sibling component in the same file to keep things tidy).
 
-Modal can't be dismissed (overlay click / esc disabled) while an import is in progress, to avoid orphaned uploads.
-
-### CSV format & matching (unchanged from prior plan)
-
-Columns: `name, brand, size, colour, category, subcategory, material, dimensions, original_price, discounted_price, image_filename`.
-`image_filename` matched case-insensitively against ZIP entries (folder paths ignored).
-
-### Validation (unchanged)
-- `name` required
-- prices must be valid non-negative numbers if present
-- `discounted_price ≤ original_price` when both set
-- Invalid rows skipped on import (user sees them flagged in preview).
-
-### Libraries
-- `papaparse` — CSV parsing
-- `jszip` — read ZIP entries in the browser
-
-### Files to add / change
-- **New**: `src/components/admin/BulkImportDialog.tsx` — button trigger + dialog + full flow (template download, file inputs, preview, import, summary).
-- **Edit**: `src/pages/Admin.tsx` — render `<BulkImportDialog onImported={fetchProducts} />` in the header. No layout change to the body.
-- **Edit**: `package.json` — add `papaparse`, `jszip`, `@types/papaparse`.
+No other files need to change — `Index.tsx`, filters, and types stay as-is.
 
 ### Out of scope
-- Server-side bulk endpoint
-- Editing existing products via CSV (insert-only)
-- Excel (.xlsx) input — CSV only
+- Dedicated `/product/:id` route (modal is enough for now; can add later for shareable links)
+- Image gallery / multiple images (schema has one `image_url`)
+- Add-to-cart / purchase actions
