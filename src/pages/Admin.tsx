@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BulkImportDialog } from "@/components/admin/BulkImportDialog";
 import type { Product } from "@/types/product";
 
 type FormState = {
@@ -171,9 +172,12 @@ const Admin = () => {
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 md:px-6">
           <h1 className="text-lg font-semibold tracking-tight md:text-xl">Admin · Add product</h1>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/">View storefront</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <BulkImportDialog onImported={fetchProducts} />
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/">View storefront</Link>
+            </Button>
+          </div>
         </div>
       </header>
 
