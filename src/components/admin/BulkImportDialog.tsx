@@ -25,28 +25,39 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { getOrCreateVendor, uploadProductImage } from "@/lib/products";
 
 const CSV_COLUMNS = [
-  "name",
+  "product_id",
+  "display_name",
+  "product_name",
   "brand",
+  "vendor",
   "size",
-  "colour",
+  "colours",
   "category",
   "subcategory",
   "material",
   "dimensions",
+  "packaging",
   "original_price",
   "discounted_price",
-  "image_filename",
+  "price_per_unit",
+  "gst_rate",
+  "stock_status",
+  "video_url",
+  "image_filenames",
 ] as const;
 
 type CsvCol = (typeof CSV_COLUMNS)[number];
+
+const STOCK_VALUES = new Set(["in_stock", "out_of_stock", "preorder"]);
 
 type ParsedRow = {
   index: number;
   data: Record<CsvCol, string>;
   errors: string[];
-  imageStatus: "found" | "missing" | "none";
+  imageStatus: "all" | "partial" | "missing" | "none";
 };
 
 type ImportResult = {
@@ -59,6 +70,13 @@ interface BulkImportDialogProps {
 }
 
 const TEMPLATE_CSV = CSV_COLUMNS.join(",") + "\n";
+
+function splitList(value: string): string[] {
+  return value
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
   const [open, setOpen] = useState(false);
@@ -74,7 +92,7 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
   const stats = useMemo(() => {
     const valid = rows.filter((r) => r.errors.length === 0).length;
     const invalid = rows.length - valid;
-    const matched = rows.filter((r) => r.imageStatus === "found").length;
+    const matched = rows.filter((r) => r.imageStatus === "all").length;
     return { valid, invalid, matched };
   }, [rows]);
 
@@ -124,7 +142,7 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
         const data = {} as Record<CsvCol, string>;
         for (const col of CSV_COLUMNS) data[col] = (raw[col] ?? "").trim();
         const errors = validateRow(data);
-        const imageStatus = computeImageStatus(data.image_filename, imgMap);
+        const imageStatus = computeImageStatus(data.image_filenames, imgMap);
         return { index: i + 2, data, errors, imageStatus };
       });
       setRows(next);
@@ -156,7 +174,7 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
     setRows((prev) =>
       prev.map((r) => ({
         ...r,
-        imageStatus: computeImageStatus(r.data.image_filename, imgMap),
+        imageStatus: computeImageStatus(r.data.image_filenames, imgMap),
       })),
     );
   }
@@ -175,41 +193,69 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
     for (let i = 0; i < valid.length; i++) {
       const row = valid[i];
       try {
-        let image_url: string | null = null;
-        const filename = row.data.image_filename.toLowerCase();
-        if (filename && zipImages.has(filename)) {
-          const entry = zipImages.get(filename)!;
+        const d = row.data;
+        const vendor_id = d.vendor ? await getOrCreateVendor(d.vendor) : null;
+
+        const filenames = splitList(d.image_filenames).map((n) => n.toLowerCase());
+        const urls: string[] = [];
+        for (const fn of filenames) {
+          const entry = zipImages.get(fn);
+          if (!entry) continue;
           const blob = await entry.async("blob");
-          const ext = filename.split(".").pop() || "jpg";
-          const path = `${crypto.randomUUID()}.${ext}`;
-          const contentType = guessMime(ext);
-          const { error: upErr } = await supabase.storage
-            .from("product-images")
-            .upload(path, blob, { contentType });
-          if (upErr) throw upErr;
-          const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
-          image_url = pub.publicUrl;
+          urls.push(await uploadProductImage(blob, fn));
         }
 
-        const { error } = await supabase.from("products").insert({
-          name: row.data.name,
-          brand: row.data.brand || null,
-          size: row.data.size || null,
-          colour: row.data.colour || null,
-          category: row.data.category || null,
-          subcategory: row.data.subcategory || null,
-          material: row.data.material || null,
-          dimensions: row.data.dimensions || null,
-          original_price: row.data.original_price ? Number(row.data.original_price) : null,
-          discounted_price: row.data.discounted_price ? Number(row.data.discounted_price) : null,
-          image_url,
-        } as any);
+        const { data: inserted, error } = await supabase
+          .from("products")
+          .insert({
+            name: d.display_name,
+            display_name: d.display_name,
+            product_name: d.product_name || null,
+            product_id: d.product_id || null,
+            brand: d.brand || null,
+            vendor_id,
+            size: d.size || null,
+            category: d.category || null,
+            subcategory: d.subcategory || null,
+            material: d.material || null,
+            dimensions: d.dimensions || null,
+            packaging: d.packaging || null,
+            original_price: d.original_price ? Number(d.original_price) : null,
+            discounted_price: d.discounted_price ? Number(d.discounted_price) : null,
+            price_per_unit: d.price_per_unit ? Number(d.price_per_unit) : null,
+            gst_rate: d.gst_rate ? Number(d.gst_rate) : null,
+            stock_status: (d.stock_status || "in_stock") as any,
+            video_url: d.video_url || null,
+          })
+          .select("id")
+          .single();
         if (error) throw error;
+        const pid = inserted.id;
+
+        if (urls.length > 0) {
+          const imgRows = urls.map((url, idx) => ({
+            product_id: pid,
+            url,
+            position: idx,
+            is_primary: idx === 0,
+          }));
+          const { error: iErr } = await supabase.from("product_images").insert(imgRows);
+          if (iErr) throw iErr;
+        }
+
+        const colours = splitList(d.colours);
+        if (colours.length > 0) {
+          const { error: cErr } = await supabase
+            .from("product_colours")
+            .insert(colours.map((c) => ({ product_id: pid, colour: c })));
+          if (cErr) throw cErr;
+        }
+
         successes++;
       } catch (err: any) {
         failures.push({
           row: row.index,
-          name: row.data.name || "(no name)",
+          name: row.data.display_name || "(no name)",
           error: err?.message ?? "Unknown error",
         });
       } finally {
@@ -243,8 +289,9 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
           <DialogHeader className="border-b px-6 py-4">
             <DialogTitle>Bulk import products</DialogTitle>
             <DialogDescription>
-              Upload a CSV of products and an optional ZIP of images. Filenames in the CSV are matched
-              case-insensitively to images in the ZIP.
+              Upload a CSV and an optional ZIP of images. Use <code>|</code> to separate multiple
+              colours or image filenames (first image is primary). Stock status must be{" "}
+              <code>in_stock</code>, <code>out_of_stock</code>, or <code>preorder</code>.
             </DialogDescription>
           </DialogHeader>
 
@@ -271,9 +318,7 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
                       disabled={importing}
                       onChange={(e) => handleCsvChange(e.target.files?.[0] ?? null)}
                     />
-                    {csvFile && (
-                      <p className="truncate text-xs text-muted-foreground">{csvFile.name}</p>
-                    )}
+                    {csvFile && <p className="truncate text-xs text-muted-foreground">{csvFile.name}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="zip-file">Images ZIP (optional)</Label>
@@ -304,8 +349,7 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium">Preview ({rows.length} row{rows.length === 1 ? "" : "s"})</h3>
                       <p className="text-xs text-muted-foreground">
-                        {stats.valid} valid · {stats.invalid} invalid · {stats.matched} image
-                        {stats.matched === 1 ? "" : "s"} matched
+                        {stats.valid} valid · {stats.invalid} invalid · {stats.matched} fully matched
                       </p>
                     </div>
                     <div className="max-h-72 overflow-auto rounded-md border">
@@ -313,11 +357,11 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
                         <TableHeader className="sticky top-0 bg-background">
                           <TableRow>
                             <TableHead className="w-12">#</TableHead>
-                            <TableHead>Name</TableHead>
+                            <TableHead>Display name</TableHead>
                             <TableHead>Brand</TableHead>
-                            <TableHead>Category</TableHead>
+                            <TableHead>Vendor</TableHead>
                             <TableHead>Price</TableHead>
-                            <TableHead>Image</TableHead>
+                            <TableHead>Images</TableHead>
                             <TableHead>Status</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -331,10 +375,10 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
                               >
                                 <TableCell className="text-xs text-muted-foreground">{r.index}</TableCell>
                                 <TableCell className="max-w-40 truncate text-sm">
-                                  {r.data.name || <span className="text-muted-foreground">—</span>}
+                                  {r.data.display_name || <span className="text-muted-foreground">—</span>}
                                 </TableCell>
                                 <TableCell className="max-w-28 truncate text-sm">{r.data.brand || "—"}</TableCell>
-                                <TableCell className="max-w-28 truncate text-sm">{r.data.category || "—"}</TableCell>
+                                <TableCell className="max-w-28 truncate text-sm">{r.data.vendor || "—"}</TableCell>
                                 <TableCell className="text-sm tabular-nums">
                                   {r.data.discounted_price || r.data.original_price || "—"}
                                 </TableCell>
@@ -412,7 +456,7 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
                   {importing
                     ? `Importing ${progress} / ${totalToImport}…`
                     : rows.length > 0
-                      ? `${stats.valid} valid · ${stats.invalid} invalid · ${stats.matched} image${stats.matched === 1 ? "" : "s"} matched`
+                      ? `${stats.valid} valid · ${stats.invalid} invalid · ${stats.matched} fully matched`
                       : "Pick a CSV to begin"}
                 </p>
                 <div className="flex gap-2">
@@ -451,11 +495,19 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
 }
 
 function ImageBadge({ status }: { status: ParsedRow["imageStatus"] }) {
-  if (status === "found") {
+  if (status === "all") {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-500">
         <CheckCircle2 className="h-3.5 w-3.5" />
-        Found
+        All found
+      </span>
+    );
+  }
+  if (status === "partial") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
+        <AlertCircle className="h-3.5 w-3.5" />
+        Partial
       </span>
     );
   }
@@ -472,18 +524,26 @@ function ImageBadge({ status }: { status: ParsedRow["imageStatus"] }) {
 
 function validateRow(data: Record<CsvCol, string>): string[] {
   const errors: string[] = [];
-  if (!data.name) errors.push("Name is required");
-  const orig = parseMaybePrice(data.original_price);
-  const disc = parseMaybePrice(data.discounted_price);
+  if (!data.display_name) errors.push("display_name is required");
+  const orig = parseMaybeNum(data.original_price);
+  const disc = parseMaybeNum(data.discounted_price);
+  const ppu = parseMaybeNum(data.price_per_unit);
+  const gst = parseMaybeNum(data.gst_rate);
   if (orig === "invalid") errors.push("Invalid original_price");
   if (disc === "invalid") errors.push("Invalid discounted_price");
+  if (ppu === "invalid") errors.push("Invalid price_per_unit");
+  if (gst === "invalid") errors.push("Invalid gst_rate");
+  if (typeof gst === "number" && gst > 100) errors.push("gst_rate must be 0–100");
   if (typeof orig === "number" && typeof disc === "number" && disc > orig) {
     errors.push("Discounted exceeds original");
+  }
+  if (data.stock_status && !STOCK_VALUES.has(data.stock_status)) {
+    errors.push("stock_status must be in_stock | out_of_stock | preorder");
   }
   return errors;
 }
 
-function parseMaybePrice(value: string): number | null | "invalid" {
+function parseMaybeNum(value: string): number | null | "invalid" {
   if (!value) return null;
   const n = Number(value);
   if (Number.isNaN(n) || n < 0) return "invalid";
@@ -491,19 +551,13 @@ function parseMaybePrice(value: string): number | null | "invalid" {
 }
 
 function computeImageStatus(
-  filename: string,
+  filenames: string,
   imgMap: Map<string, JSZip.JSZipObject>,
 ): ParsedRow["imageStatus"] {
-  const f = filename?.toLowerCase().trim();
-  if (!f) return "none";
-  return imgMap.has(f) ? "found" : "missing";
-}
-
-function guessMime(ext: string): string {
-  const e = ext.toLowerCase();
-  if (e === "jpg" || e === "jpeg") return "image/jpeg";
-  if (e === "png") return "image/png";
-  if (e === "webp") return "image/webp";
-  if (e === "gif") return "image/gif";
-  return "application/octet-stream";
+  const list = splitList(filenames).map((n) => n.toLowerCase());
+  if (list.length === 0) return "none";
+  const found = list.filter((n) => imgMap.has(n)).length;
+  if (found === list.length) return "all";
+  if (found === 0) return "missing";
+  return "partial";
 }
