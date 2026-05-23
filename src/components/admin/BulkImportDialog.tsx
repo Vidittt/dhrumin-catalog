@@ -81,13 +81,16 @@ function splitList(value: string): string[] {
 export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
   const [open, setOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [zipImages, setZipImages] = useState<Map<string, JSZip.JSZipObject>>(new Map());
   const [parsing, setParsing] = useState(false);
+  const [pdfParsing, setPdfParsing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const pdfProcessorUrl = import.meta.env.VITE_PDF_PROCESSOR_URL ?? "/api";
 
   const stats = useMemo(() => {
     const valid = rows.filter((r) => r.errors.length === 0).length;
@@ -177,6 +180,76 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
         imageStatus: computeImageStatus(r.data.image_filenames, imgMap),
       })),
     );
+  }
+
+  async function handlePdfChange(file: File | null) {
+    setPdfFile(file);
+    setCsvFile(null);
+    setRows([]);
+    setResult(null);
+    if (!file) return;
+    setPdfParsing(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`${pdfProcessorUrl}/process-pdf`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || data.error || "Failed to parse PDF");
+      }
+
+      const parsedRows = Array.isArray(data.rows) ? data.rows : [];
+      const next: ParsedRow[] = parsedRows.map((row, index) => {
+        const displayName = (row.name || row.display_name || "").trim();
+        const colours = Array.isArray(row.colours)
+          ? row.colours.join("|")
+          : String(row.colours || "");
+
+        const imageRef = String(row.actual_image_path || row.image_reference || "");
+        const data: Record<CsvCol, string> = {
+          product_id: String(row.product_id || ""),
+          display_name: displayName,
+          product_name: String(row.product_name || ""),
+          brand: String(row.brand || ""),
+          vendor: String(row.vendor || ""),
+          size: String(row.size || ""),
+          colours,
+          category: String(row.category || ""),
+          subcategory: String(row.subcategory || ""),
+          material: String(row.material || ""),
+          dimensions: String(row.dimensions || ""),
+          packaging: String(row.packaging || ""),
+          original_price: String(row.original_price || ""),
+          discounted_price: String(row.discounted_price || ""),
+          price_per_unit: String(row.price_per_unit || ""),
+          gst_rate: String(row.gst_rate || ""),
+          stock_status: String(row.stock_status || ""),
+          video_url: String(row.video_url || ""),
+          image_filenames: imageRef,
+        };
+
+        return {
+          index: index + 1,
+          data,
+          errors: validateRow(data),
+          imageStatus: computeImageStatus(data.image_filenames, zipImages),
+        };
+      });
+      setRows(next);
+      if (next.length > 0) {
+        toast.success(`PDF parsed ${next.length} rows`);
+      } else {
+        toast.error("PDF parsed but returned no rows.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to parse PDF");
+      setPdfFile(null);
+    } finally {
+      setPdfParsing(false);
+    }
   }
 
   async function handleImport() {
@@ -289,8 +362,8 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
           <DialogHeader className="border-b px-6 py-4">
             <DialogTitle>Bulk import products</DialogTitle>
             <DialogDescription>
-              Upload a CSV and an optional ZIP of images. Use <code>|</code> to separate multiple
-              colours or image filenames (first image is primary). Stock status must be{" "}
+              Upload a CSV and an optional ZIP of images, or upload a PDF for structured product extraction.
+              Use <code>|</code> to separate multiple colours or image filenames (first image is primary). Stock status must be{" "}
               <code>in_stock</code>, <code>out_of_stock</code>, or <code>preorder</code>.
             </DialogDescription>
           </DialogHeader>
@@ -315,11 +388,26 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
                       id="csv-file"
                       type="file"
                       accept=".csv,text/csv"
-                      disabled={importing}
+                      disabled={importing || pdfParsing}
                       onChange={(e) => handleCsvChange(e.target.files?.[0] ?? null)}
                     />
                     {csvFile && <p className="truncate text-xs text-muted-foreground">{csvFile.name}</p>}
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pdf-file">PDF file *</Label>
+                    <Input
+                      id="pdf-file"
+                      type="file"
+                      accept="application/pdf"
+                      disabled={importing || parsing}
+                      onChange={(e) => handlePdfChange(e.target.files?.[0] ?? null)}
+                    />
+                    {pdfFile && (
+                      <p className="truncate text-xs text-muted-foreground">{pdfFile.name}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="zip-file">Images ZIP (optional)</Label>
                     <Input
@@ -337,10 +425,10 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
                   </div>
                 </div>
 
-                {parsing && (
+                {(parsing || pdfParsing) && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Parsing CSV…
+                    {pdfParsing ? "Parsing PDF…" : "Parsing CSV…"}
                   </div>
                 )}
 
