@@ -14,54 +14,168 @@ export type Database = {
   }
   public: {
     Tables: {
+      product_colours: {
+        Row: {
+          colour: string
+          created_at: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          colour: string
+          created_at?: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          colour?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_colours_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_images: {
+        Row: {
+          created_at: string
+          id: string
+          is_primary: boolean
+          position: number
+          product_id: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          position?: number
+          product_id: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          position?: number
+          product_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string | null
-          capacity: string | null
           category: string | null
-          colour: string | null
           created_at: string
           dimensions: string | null
           discounted_price: number | null
+          display_name: string
+          gst_rate: number | null
           id: string
-          image_url: string | null
           material: string | null
           name: string
           original_price: number | null
+          packaging: string | null
+          price_per_unit: number | null
+          product_id: string | null
+          product_name: string | null
           size: string | null
+          stock_status: Database["public"]["Enums"]["stock_status"]
           subcategory: string | null
+          updated_at: string
+          vendor_id: string | null
+          video_url: string | null
         }
         Insert: {
           brand?: string | null
-          capacity?: string | null
           category?: string | null
-          colour?: string | null
           created_at?: string
           dimensions?: string | null
           discounted_price?: number | null
+          display_name: string
+          gst_rate?: number | null
           id?: string
-          image_url?: string | null
           material?: string | null
           name: string
           original_price?: number | null
+          packaging?: string | null
+          price_per_unit?: number | null
+          product_id?: string | null
+          product_name?: string | null
           size?: string | null
+          stock_status?: Database["public"]["Enums"]["stock_status"]
           subcategory?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+          video_url?: string | null
         }
         Update: {
           brand?: string | null
-          capacity?: string | null
           category?: string | null
-          colour?: string | null
           created_at?: string
           dimensions?: string | null
           discounted_price?: number | null
+          display_name?: string
+          gst_rate?: number | null
           id?: string
-          image_url?: string | null
           material?: string | null
           name?: string
           original_price?: number | null
+          packaging?: string | null
+          price_per_unit?: number | null
+          product_id?: string | null
+          product_name?: string | null
           size?: string | null
+          stock_status?: Database["public"]["Enums"]["stock_status"]
           subcategory?: string | null
+          updated_at?: string
+          vendor_id?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          contact_email: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -73,7 +187,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      stock_status: "in_stock" | "out_of_stock" | "preorder"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -200,6 +314,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      stock_status: ["in_stock", "out_of_stock", "preorder"],
+    },
   },
 } as const
