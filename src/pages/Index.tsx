@@ -1,16 +1,36 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { FilterPanel, type Filters } from "@/components/storefront/FilterPanel";
+import { FilterPanel, type Filters, type FacetKey } from "@/components/storefront/FilterPanel";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import type { Product } from "@/types/product";
+import { fetchProductsWithRelations } from "@/lib/products";
 
-const emptyFilters: Filters = { brand: [], size: [], colour: [], category: [], subcategory: [], material: [] };
+const emptyFilters: Filters = {
+  brand: [],
+  size: [],
+  colour: [],
+  category: [],
+  subcategory: [],
+  material: [],
+  vendor: [],
+  stock_status: [],
+};
+
+const FACET_KEYS: FacetKey[] = [
+  "brand",
+  "size",
+  "colour",
+  "category",
+  "subcategory",
+  "material",
+  "vendor",
+  "stock_status",
+];
 
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -21,71 +41,67 @@ const Index = () => {
   useEffect(() => {
     document.title = "Storefront — Browse products";
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", "Search and filter our product catalog by brand, size, colour, and category.");
-    fetchProducts();
+    if (meta)
+      meta.setAttribute(
+        "content",
+        "Search and filter our product catalog by brand, size, colour, vendor, stock and more."
+      );
+    load();
   }, []);
 
-  async function fetchProducts() {
+  async function load() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (!error && data) setProducts(data as Product[]);
-    setLoading(false);
+    try {
+      const data = await fetchProductsWithRelations();
+      setProducts(data);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const facets = useMemo(() => {
-    const f = {
-      brand: new Set<string>(),
-      size: new Set<string>(),
-      colour: new Set<string>(),
-      category: new Set<string>(),
-      subcategory: new Set<string>(),
-      material: new Set<string>(),
+    const f: Record<FacetKey, Set<string>> = {
+      brand: new Set(),
+      size: new Set(),
+      colour: new Set(),
+      category: new Set(),
+      subcategory: new Set(),
+      material: new Set(),
+      vendor: new Set(),
+      stock_status: new Set(),
     };
     for (const p of products) {
       if (p.brand) f.brand.add(p.brand);
       if (p.size) f.size.add(p.size);
-      if (p.colour) f.colour.add(p.colour);
+      for (const c of p.colours) f.colour.add(c);
       if (p.category) f.category.add(p.category);
       if (p.subcategory) f.subcategory.add(p.subcategory);
       if (p.material) f.material.add(p.material);
+      if (p.vendor?.name) f.vendor.add(p.vendor.name);
+      f.stock_status.add(p.stock_status);
     }
-    return {
-      brand: [...f.brand].sort(),
-      size: [...f.size].sort(),
-      colour: [...f.colour].sort(),
-      category: [...f.category].sort(),
-      subcategory: [...f.subcategory].sort(),
-      material: [...f.material].sort(),
-    };
+    return Object.fromEntries(FACET_KEYS.map((k) => [k, [...f[k]].sort()])) as Record<FacetKey, string[]>;
   }, [products]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
       if (q) {
-        const hay = `${p.name} ${p.brand ?? ""}`.toLowerCase();
+        const hay = `${p.display_name} ${p.name} ${p.brand ?? ""} ${p.product_id ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      for (const key of ["brand", "size", "colour", "category", "subcategory", "material"] as const) {
+      for (const key of ["brand", "size", "category", "subcategory", "material"] as const) {
         const sel = filters[key];
-        if (sel.length === 0) continue;
-        const val = p[key];
-        if (!val || !sel.includes(val)) return false;
+        if (sel.length && !(p[key] && sel.includes(p[key] as string))) return false;
       }
+      if (filters.colour.length && !p.colours.some((c) => filters.colour.includes(c))) return false;
+      if (filters.vendor.length && !(p.vendor?.name && filters.vendor.includes(p.vendor.name))) return false;
+      if (filters.stock_status.length && !filters.stock_status.includes(p.stock_status)) return false;
       return true;
     });
   }, [products, search, filters]);
 
-  const activeCount =
-    filters.brand.length +
-    filters.size.length +
-    filters.colour.length +
-    filters.category.length +
-    filters.subcategory.length +
-    filters.material.length;
+  const activeCount = FACET_KEYS.reduce((n, k) => n + filters[k].length, 0);
 
   function clearAll() {
     setFilters(emptyFilters);

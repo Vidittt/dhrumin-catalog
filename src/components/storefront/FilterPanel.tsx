@@ -2,7 +2,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-export type FacetKey = "brand" | "size" | "colour" | "category" | "subcategory" | "material";
+export type FacetKey =
+  | "brand"
+  | "size"
+  | "colour"
+  | "category"
+  | "subcategory"
+  | "material"
+  | "vendor"
+  | "stock_status";
 export type Filters = Record<FacetKey, string[]>;
 
 type Props = {
@@ -19,6 +27,14 @@ const labels: Record<FacetKey, string> = {
   category: "Category",
   subcategory: "Subcategory",
   material: "Material",
+  vendor: "Vendor",
+  stock_status: "Stock status",
+};
+
+const STOCK_DISPLAY: Record<string, string> = {
+  in_stock: "In stock",
+  out_of_stock: "Out of stock",
+  preorder: "Pre-order",
 };
 
 export function FilterPanel({ facets, filters, onChange, onClear }: Props) {
@@ -41,9 +57,7 @@ export function FilterPanel({ facets, filters, onChange, onClear }: Props) {
         </Button>
       </div>
 
-      {!hasAny && (
-        <p className="text-xs text-muted-foreground">No filters available yet.</p>
-      )}
+      {!hasAny && <p className="text-xs text-muted-foreground">No filters available yet.</p>}
 
       {(Object.keys(labels) as FacetKey[]).map((key) => {
         const options = facets[key];
@@ -57,15 +71,12 @@ export function FilterPanel({ facets, filters, onChange, onClear }: Props) {
               {options.map((opt) => {
                 const id = `${key}-${opt}`;
                 const checked = filters[key].includes(opt);
+                const display = key === "stock_status" ? STOCK_DISPLAY[opt] ?? opt : opt;
                 return (
                   <div key={opt} className="flex items-center gap-2">
-                    <Checkbox
-                      id={id}
-                      checked={checked}
-                      onCheckedChange={() => toggle(key, opt)}
-                    />
+                    <Checkbox id={id} checked={checked} onCheckedChange={() => toggle(key, opt)} />
                     <Label htmlFor={id} className="cursor-pointer text-sm font-normal">
-                      {opt}
+                      {display}
                     </Label>
                   </div>
                 );
