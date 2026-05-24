@@ -3,8 +3,8 @@ import fs from "fs";
 import type { IncomingMessage, ServerResponse } from "http";
 import pdfjsLib from "pdfjs-dist/legacy/build/pdf.js";
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-1.5-mini";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 function parseForm(req: IncomingMessage): Promise<{ file: { filepath: string; originalFilename?: string | null } }> {
   return new Promise((resolve, reject) => {
@@ -32,43 +32,44 @@ async function extractPdfText(pdfBytes: Uint8Array) {
   return pages;
 }
 
-async function callOpenAi(prompt: string) {
-  if (!OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is required for the PDF processor.");
+async function callGemini(prompt: string) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is required for the PDF processor.");
   }
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const url = `https://generativelanguage.googleapis.com/v1beta2/models/${encodeURIComponent(
+    GEMINI_MODEL,
+  )}:generate?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+
+  const response = await fetch(url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: OPENAI_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a PDF extraction assistant. Extract structured product catalog data from the supplied document text and return valid JSON only.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+      prompt: {
+        text: prompt,
+      },
       temperature: 0,
-      max_tokens: 1500,
+      maxOutputTokens: 1500,
     }),
   });
 
-  const data = await response.json();
+  const data: any = await response.json();
   if (!response.ok) {
-    throw new Error(data.error?.message || "OpenAI request failed");
+    throw new Error(data?.error?.message || data?.error || "Gemini request failed");
   }
 
-  const text = data.choices?.[0]?.message?.content;
+  const candidate = data?.candidates?.[0] || data?.output?.[0];
+  const text =
+    candidate?.content ||
+    candidate?.output?.[0]?.content ||
+    candidate?.message?.content?.[0]?.text ||
+    candidate?.message?.content ||
+    "";
+
   if (!text) {
-    throw new Error("Empty response from OpenAI");
+    throw new Error("Empty response from Gemini");
   }
 
   return text;
@@ -121,7 +122,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     const fileBuffer = await fs.promises.readFile(file.filepath);
     const pageTexts = await extractPdfText(new Uint8Array(fileBuffer));
     const prompt = buildPrompt(pageTexts);
-    const llmResponse = await callOpenAi(prompt);
+    const llmResponse = await callGemini(prompt);
     const rows = JSON.parse(llmResponse);
     if (!Array.isArray(rows)) {
       throw new Error("LLM response did not produce a JSON array");

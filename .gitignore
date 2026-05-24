@@ -24,3 +24,5 @@ server/.venv/
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*

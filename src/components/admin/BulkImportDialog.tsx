@@ -90,7 +90,7 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const pdfProcessorUrl = import.meta.env.VITE_PDF_PROCESSOR_URL ?? "/api";
+  const pdfProcessorUrl = import.meta.env.VITE_PDF_PROCESSOR_URL;
 
   const stats = useMemo(() => {
     const valid = rows.filter((r) => r.errors.length === 0).length;
@@ -196,9 +196,23 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
         method: "POST",
         body: formData,
       });
-      const data = await response.json();
+      const text = await response.text();
       if (!response.ok) {
-        throw new Error(data.detail || data.error || "Failed to parse PDF");
+        let message = text;
+        try {
+          const json = JSON.parse(text);
+          message = json.detail || json.error || text;
+        } catch {
+          message = text || "Failed to parse PDF";
+        }
+        throw new Error(message);
+      }
+
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Invalid JSON response from PDF processor: ${text}`);
       }
 
       const parsedRows = Array.isArray(data.rows) ? data.rows : [];
