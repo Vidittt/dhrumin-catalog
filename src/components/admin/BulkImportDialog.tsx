@@ -90,7 +90,7 @@ export function BulkImportDialog({ onImported }: BulkImportDialogProps) {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const pdfProcessorUrl = import.meta.env.VITE_PDF_PROCESSOR_URL;
+  const pdfProcessorUrl = import.meta.env.VITE_PDF_PROCESSOR_URL ?? "/api";
 
   const stats = useMemo(() => {
     const valid = rows.filter((r) => r.errors.length === 0).length;
